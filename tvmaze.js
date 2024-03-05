@@ -4,42 +4,28 @@ const $showsList = $("#showsList");
 const $episodesArea = $("#episodesArea");
 const $searchForm = $("#searchForm");
 
-/** Given a search term, search for tv shows that match that query.
- *
- *  Returns (promise) array of show objects: [show, show, ...].
- *    Each show object should contain exactly: {id, name, summary, image}
- *    (if no image URL given by API, put in a default image URL)
- */
-
 async function getShowsByTerm(term) {
-try {
-  const response = await axios.get("http://api.tvmaze.com/search/shows", {
-    params: {
-      q: term,
-    },
-  });
-  const show = response.data.map((result) => {
-    const { id, name, summary, image } = result.show;
-    return {
-      id,
-      name,
-      summary,
-      image: image
-        ? image.medium
-        : "https://plus.unsplash.com/premium_photo-1682125771198-f7cbed7cb868?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2xhcHBlcmJvYXJkfGVufDB8fDB8fHww",
-    };
-  });
-  return show;
-} catch (error) {
-  
-  console.error("Error fetching TV shows:", error.message);
-  throw new Error("Unable to fetch TV shows. Please try again later.");
+  try {
+    const response = await axios.get("http://api.tvmaze.com/search/shows", {
+      params: {
+        q: term,
+      },
+    });
+    const show = response.data.map((result) => {
+      const { id, name, summary, image } = result.show;
+      return {
+        id,
+        name,
+        summary,
+        image: image ? image.medium : "https://tinyurl.com/tv-missing",
+      };
+    });
+    return show;
+  } catch (error) {
+    console.error("Error fetching TV shows:", error.message);
+    throw new Error("Unable to fetch TV shows. Please try again later.");
+  }
 }
-}
-
-
-/** Given list of shows, create markup for each and to DOM */
-
 function populateShows(shows) {
   $showsList.empty();
 
@@ -50,7 +36,7 @@ function populateShows(shows) {
            <img
               src="${show.image}"
               alt="${show.name} TV Show Poster"
-              class="w-25 me-3">
+              class=" card-img-top w-25 me-3">
            <div class="media-body">
              <h5 class="text-primary">${show.name}</h5>
              <div><small>${show.summary}</small></div>
@@ -66,11 +52,6 @@ function populateShows(shows) {
     $showsList.append($show);
   }
 }
-
-/** Handle search form submission: get shows from API and display.
- *    Hide episodes area (that only gets shown if they ask for episodes)
- */
-
 async function searchForShowAndDisplay() {
   const term = $("#searchForm-term").val();
   const shows = await getShowsByTerm(term);
@@ -84,12 +65,40 @@ $searchForm.on("submit", async function (evt) {
   await searchForShowAndDisplay();
 });
 
-/** Given a show ID, get from API and return (promise) array of episodes:
- *      { id, name, season, number }
- */
+async function getEpisodesOfShow(showId) {
+  try {
+    const response = await axios.get(
+      `http://api.tvmaze.com/shows/${showId}/episodes`
+    );
+    const episodes = response.data.map((result) => {
+      const { id, name, season, number } = result;
+      return { id, name, season, number };
+    });
+    return episodes;
+  } catch (error) {
+    console.error("Error fetching episodes:", error.message);
+    throw new Error("Unable to fetch episodes. Please try again later.");
+  }
+}
 
-// async function getEpisodesOfShow(id) { }
+function populateEpisodes(episodes) {
+  $episodesArea.empty();
 
-/** Write a clear docstring for this function... */
-
-// function populateEpisodes(episodes) { }
+  for (let episode of episodes) {
+    const $episodes = $(
+`<li>
+"${episode.name}"
+(Season ${episode.season}, Ep: ${episode.number})
+<li>
+`
+    );
+    $episodesArea.append($episodes);
+  }
+  $episodesArea.show();
+}
+async function getEpisodesAndDisplay(event) {
+  const showId = $(event.target).closest(".Show").data("show-id");
+  const episodes = await getEpisodesOfShow(showId); // Define episodes here
+  populateEpisodes(episodes);
+}
+$showsList.on("click", ".Show-getEpisodes", getEpisodesAndDisplay);
